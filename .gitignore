@@ -1,2 +1,18 @@
+# PyInstaller
+dist/
+build/
+*.spec
+
+# Python
 __pycache__/
 *.pickle
+.env
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+attendance_log.csv
+trainer.yml
