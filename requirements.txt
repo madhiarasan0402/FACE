@@ -1,0 +1,5 @@
+opencv-contrib-python
+numpy
+pyttsx3
+flask
+mysql-connector-python
