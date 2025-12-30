@@ -1,6 +1,5 @@
-Flask
-opencv-python
+flask
+opencv-python-headless
 numpy
 mysql-connector-python
-pyttsx3
 gunicorn

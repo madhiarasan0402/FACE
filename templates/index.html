@@ -12,7 +12,6 @@
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
             --accent: #3b82f6;
-            --accent-hover: #2563eb;
             --success: #22c55e;
             --border: #334155;
         }
@@ -24,10 +23,10 @@
             margin: 0;
             padding: 20px;
             height: 100vh;
-            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             gap: 20px;
+            box-sizing: border-box;
         }
 
         header {
@@ -36,12 +35,6 @@
             align-items: center;
             padding-bottom: 20px;
             border-bottom: 1px solid var(--border);
-        }
-
-        h1 {
-            margin: 0;
-            font-size: 1.5rem;
-            font-weight: 600;
         }
 
         .main-container {
@@ -53,26 +46,34 @@
             position: relative;
         }
 
-        /* Camera Section */
         .camera-card {
-            background: var(--card-bg);
+            background: #000;
             border-radius: 12px;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
             position: relative;
             border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
 
-        .camera-feed {
-            flex: 1;
+        #videoElement {
             width: 100%;
             height: 100%;
-            object-fit: cover;
-            background: #000;
+            object-fit: contain;
+            display: block;
         }
 
-        /* Home Overlay (Landing Page) */
+        #canvasOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
         .landing-overlay {
             position: absolute;
             top: 0;
@@ -89,7 +90,7 @@
         }
 
         .landing-overlay.hidden {
-            display: none !important;
+            display: none;
         }
 
         .big-btn {
@@ -102,7 +103,6 @@
             cursor: pointer;
             transition: all 0.2s;
             width: 300px;
-            text-align: center;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -115,7 +115,6 @@
             box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5);
         }
 
-        /* Layout for Sidebar */
         .sidebar {
             background: var(--card-bg);
             border-radius: 12px;
@@ -146,7 +145,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            animation: slideIn 0.3s ease;
             border-left: 3px solid var(--accent);
         }
 
@@ -171,7 +169,6 @@
             font-size: 0.9rem;
         }
 
-        /* Modal */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -179,18 +176,14 @@
             right: 0;
             bottom: 0;
             background: rgba(0, 0, 0, 0.8);
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             z-index: 1000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
         }
 
         .modal-overlay.active {
-            opacity: 1;
-            pointer-events: all;
+            display: flex;
         }
 
         .modal {
@@ -199,24 +192,13 @@
             border-radius: 16px;
             width: 350px;
             border: 1px solid var(--border);
-            transform: scale(0.95);
-            transition: transform 0.2s;
-        }
-
-        .modal-overlay.active .modal {
-            transform: scale(1);
-        }
-
-        .modal h2 {
-            margin-top: 0;
-            color: var(--text-primary);
         }
 
         .form-group {
             margin-bottom: 15px;
         }
 
-        .form-group label {
+        label {
             display: block;
             margin-bottom: 5px;
             color: var(--text-secondary);
@@ -233,18 +215,6 @@
             font-size: 1rem;
         }
 
-        input:focus {
-            outline: 2px solid var(--accent);
-            border-color: transparent;
-        }
-
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
         .btn {
             background: var(--accent);
             color: white;
@@ -252,20 +222,20 @@
             padding: 10px 20px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 1rem;
         }
 
         .btn-secondary {
             background: transparent;
             border: 1px solid var(--border);
             color: var(--text-secondary);
+            margin-right: 10px;
         }
 
         .back-btn {
             position: absolute;
             top: 20px;
             left: 20px;
-            z-index: 10;
+            z-index: 60;
             background: rgba(0, 0, 0, 0.6);
             color: white;
             border: none;
@@ -273,40 +243,30 @@
             border-radius: 6px;
             cursor: pointer;
             display: none;
-            /* hidden by default */
         }
 
-        /* Success Card Overlay - Refined to match user request */
         .verification-card {
             position: absolute;
             bottom: 20px;
             left: 20px;
-            /* Moved to Left */
-            transform: translateY(20px);
-            background: #ffffff;
+            background: #fff;
             color: #333;
             padding: 15px 25px;
             border-radius: 12px;
             display: flex;
             align-items: center;
             gap: 25px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
             opacity: 0;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
             pointer-events: none;
+            transition: all 0.3s;
             z-index: 20;
             min-width: 320px;
             border-left: 5px solid #65a30d;
-            /* Brand green */
         }
 
         .verification-card.active {
             opacity: 1;
             transform: translateY(0);
-        }
-
-        .img-col {
-            position: relative;
         }
 
         .profile-pic {
@@ -315,16 +275,6 @@
             border-radius: 50%;
             object-fit: cover;
             border: 3px solid #65a30d;
-            /* Green ring */
-            padding: 3px;
-            background: white;
-        }
-
-        .info-col {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            text-align: left;
         }
 
         .success-title {
@@ -332,120 +282,69 @@
             font-size: 1.4rem;
             line-height: 1.2;
             margin-bottom: 8px;
-            font-weight: 400;
-            /* As per image */
         }
 
-        .success-title strong {
-            font-weight: 600;
-        }
-
-        .info-row {
-            font-size: 1rem;
-            color: #555;
-            display: flex;
-            gap: 5px;
-        }
-
-        .info-label {
-            color: #444;
-            font-weight: 400;
-        }
-
-        .info-val {
-            color: #000;
-            font-weight: 500;
+        #statusText {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
         }
     </style>
 </head>
 
 <body>
-
     <header>
         <h1>Attendance System</h1>
-        <div style="font-size: 0.9rem; color: var(--text-secondary);">
-            <span id="clock">--:--:--</span>
-        </div>
+        <div id="clock">--:--:--</div>
     </header>
 
     <div class="main-container">
-
-        <!-- Landing Actions (Overlay) -->
         <div class="landing-overlay" id="landingPage">
             <h2 style="margin-bottom: 40px; font-size: 2rem;">Select Mode</h2>
-
             <div style="display: flex; gap: 30px;">
-                <button class="big-btn" onclick="openRegModal()">
-                    <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z">
-                        </path>
-                    </svg>
-                    New User Registration
-                </button>
-
-                <button class="big-btn" onclick="startAttendance()">
-                    <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
-                        </path>
-                    </svg>
-                    Mark Attendance
-                </button>
+                <button class="big-btn" onclick="openRegModal()">New User Registration</button>
+                <button class="big-btn" onclick="startAttendance()">Mark Attendance</button>
             </div>
         </div>
 
-        <!-- Camera Feed -->
         <div class="camera-card">
             <button class="back-btn" id="homeBtn" onclick="goHome()">← Back to Home</button>
-            <img src="/video_feed" class="camera-feed" alt="Camera Feed">
+            <video id="videoElement" autoplay playsinline></video>
+            <canvas id="canvasOverlay"></canvas>
+            <div id="statusText">System Idle</div>
 
-            <!-- Success Overlay -->
             <div class="verification-card" id="successCard">
-                <div class="img-col">
-                    <img src="" class="profile-pic" id="cardImg">
-                </div>
+                <img src="" class="profile-pic" id="cardImg">
                 <div class="info-col">
                     <div class="success-title">Successfully<br><strong>Verified</strong></div>
-                    <div class="info-row">
-                        <span class="info-label">Name:</span>
-                        <span class="info-val" id="cardNameVal">--</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">User ID:</span>
-                        <span class="info-val" id="cardIDVal">--</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Verify:</span>
-                        <span class="info-val">Face</span>
-                    </div>
+                    <div>Name: <strong id="cardNameVal">--</strong></div>
+                    <div>ID: <strong id="cardIDVal">--</strong></div>
                 </div>
             </div>
         </div>
 
-        <!-- Sidebar Log -->
         <div class="sidebar">
             <div class="sidebar-header">Today's Attendance</div>
             <div class="log-list" id="logList"></div>
         </div>
     </div>
 
-    <!-- Add User Modal -->
     <div class="modal-overlay" id="regModal">
         <div class="modal">
             <h2>Register User</h2>
-
             <div class="form-group">
                 <label>Full Name</label>
                 <input type="text" id="regName" placeholder="e.g. John Doe">
             </div>
-
             <div class="form-group">
                 <label>Employee ID</label>
                 <input type="text" id="regID" placeholder="e.g. EMP001">
             </div>
-
-            <div class="modal-actions">
+            <div class="modal-actions" style="display:flex; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeRegModal()">Cancel</button>
                 <button class="btn" onclick="submitRegistration()">Start Capture</button>
             </div>
@@ -453,72 +352,128 @@
     </div>
 
     <script>
-        // --- UI LOGIC ---
-        const landing = document.getElementById('landingPage');
-        const homeBtn = document.getElementById('homeBtn');
-        const regModal = document.getElementById('regModal');
+        const video = document.getElementById('videoElement');
+        const canvas = document.getElementById('canvasOverlay');
+        const ctx = canvas.getContext('2d');
+        const statusText = document.getElementById('statusText');
+        let currentMode = 'idle';
+        let processing = false;
 
-        // Initial State
-        landing.classList.remove('hidden');
-        homeBtn.style.display = 'none';
-        setMode('idle');
-
-        function openRegModal() {
-            regModal.classList.add('active');
-            document.getElementById('regName').value = '';
-            document.getElementById('regID').value = '';
-            setTimeout(() => document.getElementById('regName').focus(), 100);
+        // Initialize Camera
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    startProcessing();
+                };
+            } catch (err) {
+                console.error("Camera error:", err);
+                alert("Could not access camera. Please ensure you have granted permission.");
+            }
         }
 
-        function closeRegModal() {
-            regModal.classList.remove('active');
+        function startProcessing() {
+            setInterval(async () => {
+                if (currentMode === 'idle' || processing) return;
+
+                processing = true;
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = video.videoWidth;
+                tempCanvas.height = video.videoHeight;
+                tempCanvas.getContext('2d').drawImage(video, 0, 0);
+
+                const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.7);
+
+                try {
+                    const res = await fetch('/process_frame', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: dataUrl })
+                    });
+                    const result = await res.json();
+                    drawOverlay(result.faces);
+                } catch (e) { console.error(e); }
+
+                processing = false;
+            }, 150); // Process every 150ms
         }
+
+        function drawOverlay(faces) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!faces) return;
+
+            faces.forEach(face => {
+                const color = face.name && face.name !== "Unknown" ? "#22c55e" : "#ef4444";
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+
+                // Draw corners (viewfinder style)
+                const { x, y, w, h } = face;
+                const len = 20;
+
+                ctx.beginPath();
+                // TL
+                ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
+                // TR
+                ctx.moveTo(x + w - len, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + len);
+                // BL
+                ctx.moveTo(x, y + h - len); ctx.lineTo(x, y + h); ctx.lineTo(x + len, y + h);
+                // BR
+                ctx.moveTo(x + w - len, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - len);
+                ctx.stroke();
+
+                if (face.name) {
+                    ctx.fillStyle = color;
+                    ctx.font = "bold 16px sans-serif";
+                    ctx.fillText(face.name === "Unknown" ? `Unknown (${face.conf})` : "PRESENT", x, y - 10);
+                }
+            });
+        }
+
+        // UI Actions
+        function openRegModal() { document.getElementById('regModal').classList.add('active'); }
+        function closeRegModal() { document.getElementById('regModal').classList.remove('active'); }
 
         async function submitRegistration() {
-            const name = document.getElementById('regName').value.trim();
-            const id = document.getElementById('regID').value.trim();
-
-            if (!name || !id) {
-                alert("Please enter both Name and Employee ID");
-                return;
-            }
+            const name = document.getElementById('regName').value;
+            const id = document.getElementById('regID').value;
+            if (!name || !id) return alert("Fill all fields");
 
             closeRegModal();
-            landing.classList.add('hidden'); // Hide menu
-            homeBtn.style.display = 'block'; // Show back button
+            document.getElementById('landingPage').classList.add('hidden');
+            document.getElementById('homeBtn').style.display = 'block';
+            currentMode = 'registration';
+            statusText.textContent = "Mode: Registration";
 
-            // Start backend registration
             await fetch(`/register_start?name=${encodeURIComponent(name)}&emp_id=${encodeURIComponent(id)}`);
-
-            pollStatus();
+            pollRegistrationStatus();
         }
 
         async function startAttendance() {
-            landing.classList.add('hidden');
-            homeBtn.style.display = 'block';
-
-            await setMode('attendance');
+            document.getElementById('landingPage').classList.add('hidden');
+            document.getElementById('homeBtn').style.display = 'block';
+            currentMode = 'attendance';
+            statusText.textContent = "Mode: Attendance";
+            await fetch('/set_mode?mode=attendance');
         }
 
-        async function goHome() {
-            await setMode('idle');
-            landing.classList.remove('hidden');
-            homeBtn.style.display = 'none';
-
-            // Clear log? Optional.
+        function goHome() {
+            document.getElementById('landingPage').classList.remove('hidden');
+            document.getElementById('homeBtn').style.display = 'none';
+            currentMode = 'idle';
+            statusText.textContent = "System Idle";
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            fetch('/set_mode?mode=idle');
         }
 
-        async function setMode(mode) {
-            await fetch(`/set_mode?mode=${mode}`);
-        }
-
-        // --- POLLING LOGIC ---
-        async function pollStatus() {
+        async function pollRegistrationStatus() {
             const interval = setInterval(async () => {
                 const res = await fetch('/registration_status');
                 const data = await res.json();
-
-                // If data.mode changed back to idle, registration finished
+                statusText.textContent = `Capturing: ${data.progress}/40`;
                 if (data.mode === 'idle') {
                     clearInterval(interval);
                     alert("Registration Complete!");
@@ -527,73 +482,43 @@
             }, 1000);
         }
 
-        // Clock
-        setInterval(() => {
-            document.getElementById('clock').textContent = new Date().toLocaleTimeString();
-        }, 1000);
-
-        // Attendance Log Polling
-        const logList = document.getElementById('logList');
-        async function updateLog() {
-            try {
-                const res = await fetch('/get_attendance');
-                const data = await res.json();
-
-                const signature = JSON.stringify(data);
-                if (logList.dataset.sig === signature) return;
-                logList.dataset.sig = signature;
-
-                logList.innerHTML = '';
-
-                data.reverse().forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'log-item';
-                    div.innerHTML = `
+        // Attendance & Recognition Polling
+        setInterval(async () => {
+            if (currentMode !== 'attendance') return;
+            const res = await fetch('/get_attendance');
+            const data = await res.json();
+            const logList = document.getElementById('logList');
+            logList.innerHTML = data.reverse().map(item => `
+                <div class="log-item">
                     <div class="log-info">
                         <span class="log-name">${item.name}</span>
                         <span class="log-id">ID: ${item.id}</span>
                     </div>
                     <span class="log-time">${item.time.split(' ')[1]}</span>
-                `;
-                    logList.appendChild(div);
-                });
-            } catch (e) {
-                console.error(e);
+                </div>
+            `).join('');
+        }, 2000);
+
+        setInterval(async () => {
+            if (currentMode !== 'attendance') return;
+            const res = await fetch('/current_recognition');
+            const data = await res.json();
+            const card = document.getElementById('successCard');
+            if (data.name) {
+                document.getElementById('cardNameVal').textContent = data.name;
+                document.getElementById('cardIDVal').textContent = data.emp_id;
+                document.getElementById('cardImg').src = `/user_image/${data.emp_id}?t=${Date.now()}`;
+                card.classList.add('active');
+            } else {
+                card.classList.remove('active');
             }
-        }
-        setInterval(updateLog, 2000);
+        }, 1000);
 
-        // Verification Card Polling
-        const successCard = document.getElementById('successCard');
-        const cardImg = document.getElementById('cardImg');
-        const cardNameVal = document.getElementById('cardNameVal');
-        const cardIDVal = document.getElementById('cardIDVal');
+        setInterval(() => {
+            document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+        }, 1000);
 
-        async function checkStatus() {
-            try {
-                const res = await fetch('/current_recognition');
-                const data = await res.json();
-
-                if (data.name) {
-                    cardNameVal.textContent = data.name;
-                    cardIDVal.textContent = data.emp_id;
-
-                    // Handle image loading
-                    const newSrc = `/user_image/${data.emp_id}?t=${Date.now()}`;
-                    cardImg.src = newSrc;
-                    cardImg.onerror = function () {
-                        this.src = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"; // Fallback
-                    };
-
-                    successCard.classList.add('active');
-                } else {
-                    successCard.classList.remove('active');
-                }
-            } catch (e) { }
-        }
-
-        setInterval(checkStatus, 500); // Check every 0.5s
-
+        initCamera();
     </script>
 </body>
 
