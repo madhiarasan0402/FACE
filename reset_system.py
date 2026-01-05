@@ -1,27 +1,43 @@
 import mysql.connector
 import os
+from urllib.parse import urlparse
 
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'root', 
-    'password': '',
-    'database': 'face'
-}
+def get_db_connection():
+    db_url = os.environ.get('DATABASE_URL')
+    if db_url:
+        result = urlparse(db_url)
+        conf = {
+            'host': result.hostname,
+            'user': result.username,
+            'password': result.password,
+            'database': result.path[1:],
+            'port': result.port or 3306
+        }
+    else:
+        conf = {
+            'host': 'localhost',
+            'user': 'root', 
+            'password': '',
+            'database': 'face'
+        }
+    return mysql.connector.connect(**conf)
 
 def reset_system():
     # 1. Clear Database
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Disable FK checks to allow truncation
         cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
         
-        print("Truncating 'attendance' table...")
-        cursor.execute("TRUNCATE TABLE attendance")
-        
-        print("Truncating 'users' table...")
-        cursor.execute("TRUNCATE TABLE users")
+        tables = ['attendance', 'users', 'system_storage']
+        for table in tables:
+            try:
+                print(f"Truncating '{table}' table...")
+                cursor.execute(f"TRUNCATE TABLE {table}")
+            except:
+                print(f"Table '{table}' not found or could not be truncated.")
         
         cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
         
@@ -34,8 +50,6 @@ def reset_system():
     # 2. Delete Files
     files_to_delete = [
         "trainer.yml",
-        "encodings.pickle",
-        "labels.pickle",
         "attendance_log.csv"
     ]
     
