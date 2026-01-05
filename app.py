@@ -6,10 +6,22 @@ import datetime
 import threading
 import time
 import base64
-import mysql.connector
 from urllib.parse import urlparse
+import logging
+
+# Database Imports
+try:
+    import mysql.connector
+except ImportError:
+    mysql_connector = None
+try:
+    import psycopg2
+    from psycopg2 import extras
+except ImportError:
+    psycopg2 = None
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # --- CONFIGURATION ---
 MODEL_FILE = "trainer.yml"
@@ -29,6 +41,7 @@ today_log = []
 reg_faces_color = []
 latest_recognition = {"name": "", "emp_id": "", "time": 0}
 user_db = {}
+DB_TYPE = 'mysql' # 'mysql' or 'postgres'
 
 # Detectors
 face_cascade = cv2.CascadeClassifier(os.path.join(cv2.data.haarcascades, 'haarcascade_frontalface_default.xml'))
@@ -37,90 +50,145 @@ if face_cascade.empty():
 recognizer = cv2.face.LBPHFaceRecognizer_create()
 clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
 
-# --- DATABASE CONFIG ---
+# --- DATABASE CONFIG & HELPERS ---
 def get_db_connection(db_name=None):
-    # Support DATABASE_URL (standard on Render) or individual vars
+    global DB_TYPE
     db_url = os.environ.get('DATABASE_URL')
     
-    if db_url:
-        result = urlparse(db_url)
-        db_from_url = result.path[1:] if result.path else ""
-        target_db = db_name if db_name else (db_from_url if db_from_url else 'face')
+    if db_url and (db_url.startswith("postgres://") or db_url.startswith("postgresql://")):
+        # PostgreSQL (Render)
+        DB_TYPE = 'postgres'
+        if not psycopg2:
+            print("CRITICAL: psycopg2 not installed but DATABASE_URL is postgres.")
+            return None
+        # Fix Render's "postgres://" (deprecated) to "postgresql://" for SQLAlchemy/psycopg2 if needed
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
         
-        conf = {
-            'host': result.hostname,
-            'user': result.username,
-            'password': result.password,
-            'database': target_db,
-            'port': result.port or 3306
-        }
+        try:
+            conn = psycopg2.connect(db_url)
+            return conn
+        except Exception as e:
+            print(f"Postgres Connect Error: {e}")
+            return None
+
     else:
-        conf = {
-            'host': os.environ.get('DB_HOST', 'localhost'),
-            'user': os.environ.get('DB_USER', 'root'), 
-            'password': os.environ.get('DB_PASSWORD', ''),
-            'database': os.environ.get('DB_NAME', 'face') if not db_name else db_name,
-            'port': int(os.environ.get('DB_PORT', 3306))
-        }
-    
-    try:
-        conn = mysql.connector.connect(**conf)
-        return conn
-    except mysql.connector.Error as err:
-        print(f"Database Connect Error: {err}")
-        return None
+        # MySQL Fallback
+        DB_TYPE = 'mysql'
+        
+        # Check if MySQL is available at all
+        try:
+             import mysql.connector
+        except ImportError:
+             print("CRITICAL: mysql-connector not installed.")
+             return None
+            
+        if db_url:
+            result = urlparse(db_url)
+            db_from_url = result.path[1:] if result.path else ""
+            target_db = db_name if db_name else (db_from_url if db_from_url else 'face')
+            conf = {
+                'host': result.hostname,
+                'user': result.username,
+                'password': result.password,
+                'database': target_db,
+                'port': result.port or 3306
+            }
+        else:
+            conf = {
+                'host': os.environ.get('DB_HOST', 'localhost'),
+                'user': os.environ.get('DB_USER', 'root'), 
+                'password': os.environ.get('DB_PASSWORD', ''),
+                'database': os.environ.get('DB_NAME', 'face') if not db_name else db_name,
+                'port': int(os.environ.get('DB_PORT', 3306))
+            }
+        
+        try:
+            conn = mysql.connector.connect(**conf)
+            return conn
+        except Exception as err:
+            print(f"MySQL Connect Error: {err}")
+            return None
+
+def get_cursor(conn, dictionary=False):
+    if DB_TYPE == 'postgres':
+        if dictionary:
+            return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        return conn.cursor()
+    else:
+        return conn.cursor(dictionary=dictionary)
 
 def init_db():
+    global DB_TYPE
     conn = get_db_connection()
     if not conn:
-        print("CRITICAL: COULD NOT CONNECT TO MYSQL SERVER.")
+        print("CRITICAL: COULD NOT CONNECT TO any DB.")
         return
 
-    cursor = conn.cursor()
-    try:
-        # If we didn't specify a DB in URL, we might need to create it
-        db_url = os.environ.get('DATABASE_URL')
-        if not db_url or 'localhost' in db_url:
-            cursor.execute("CREATE DATABASE IF NOT EXISTS face")
-    except Exception as e:
-        print(f"Error creating DB: {e}")
-    conn.close()
+    # Create Database if MySQL and localhost (Postgres usually connects to existing DB)
+    if DB_TYPE == 'mysql':
+        try:
+            cursor = conn.cursor()
+            db_url = os.environ.get('DATABASE_URL')
+            if not db_url or 'localhost' in db_url:
+                cursor.execute("CREATE DATABASE IF NOT EXISTS face")
+        except Exception as e:
+             print(f"Error creating DB: {e}")
+        conn.close()
+        conn = get_db_connection() # Reconnect
+        if not conn: return
     
-    conn = get_db_connection() # Connect to the actual database
-    if not conn: return
-        
     cursor = conn.cursor()
-    # Users table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(100),
-            emp_id VARCHAR(50) UNIQUE,
-            profile_image LONGBLOB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    # Attendance table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS attendance (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT,
-            name VARCHAR(100),
-            emp_id VARCHAR(50),
-            timestamp DATETIME,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-    """)
-    # System storage for trainer.yml (Persistence for Render)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS system_storage (
-            key_name VARCHAR(50) PRIMARY KEY,
-            data_blob LONGBLOB,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
+    
+    # Define Types based on DB
+    if DB_TYPE == 'postgres':
+        blob_type = 'BYTEA'
+        auto_inc = 'SERIAL PRIMARY KEY'
+        timestamp_default = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        # Postgres requires Trigger for ON UPDATE
+    else:
+        blob_type = 'LONGBLOB'
+        auto_inc = 'INT AUTO_INCREMENT PRIMARY KEY'
+        timestamp_default = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+
+    try:
+        # Users table
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS users (
+                id {auto_inc},
+                name VARCHAR(100),
+                emp_id VARCHAR(50) UNIQUE,
+                profile_image {blob_type},
+                created_at {timestamp_default}
+            )
+        """)
+        
+        # Attendance table (Postgres/MySQL compatible FK)
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS attendance (
+                id {auto_inc},
+                user_id INT,
+                name VARCHAR(100),
+                emp_id VARCHAR(50),
+                timestamp {timestamp_default},
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+        
+        # System storage
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS system_storage (
+                key_name VARCHAR(50) PRIMARY KEY,
+                data_blob {blob_type},
+                updated_at {timestamp_default}
+            )
+        """)
+        
+        conn.commit()
+    except Exception as e:
+        print(f"Init DB Error: {e}")
+    finally:
+        conn.close()
 
 def load_resources():
     global user_db, recognizer
@@ -143,9 +211,13 @@ def load_resources():
                 cursor = conn.cursor()
                 cursor.execute("SELECT data_blob FROM system_storage WHERE key_name = 'trainer_model'")
                 row = cursor.fetchone()
+                # Row format: Postgres (blob,), MySQL (blob,)
                 if row and row[0]:
+                    blob = row[0]
+                    # Postgres returns memoryview or bytes
+                    if hasattr(blob, 'tobytes'): blob = blob.tobytes()
                     with open(MODEL_FILE, "wb") as f:
-                        f.write(row[0])
+                        f.write(blob)
                     recognizer.read(MODEL_FILE)
                     model_loaded = True
                     print("Model loaded from database.")
@@ -158,7 +230,7 @@ def load_resources():
     try:
         conn = get_db_connection()
         if conn:
-            cursor = conn.cursor(dictionary=True)
+            cursor = get_cursor(conn, dictionary=True)
             cursor.execute("SELECT id, name, emp_id FROM users")
             for row in cursor.fetchall():
                 user_db[row['id']] = {"name": row['name'], "emp_id": row['emp_id']}
@@ -176,21 +248,28 @@ def log_attendance_db(internal_id, user_data):
     now = datetime.datetime.now()
     time_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
-    # Check cooldown locally to avoid excessive DB writes
+    # Check cooldown locally
     for entry in today_log:
         if entry['id'] == emp_id:
-             last_time = datetime.datetime.strptime(entry['time'], "%Y-%m-%d %H:%M:%S")
-             if (now - last_time).total_seconds() < COOLDOWN_SECONDS:
-                 return
+             try:
+                last_time = datetime.datetime.strptime(entry['time'], "%Y-%m-%d %H:%M:%S")
+                if (now - last_time).total_seconds() < COOLDOWN_SECONDS:
+                    return
+             except: pass
 
     today_log.append({"name": name, "id": emp_id, "time": time_str})
     conn = get_db_connection()
     if conn:
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO attendance (user_id, name, emp_id, timestamp) VALUES (%s, %s, %s, %s)", 
-                      (internal_id, name, emp_id, now))
-        conn.commit()
-        conn.close()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO attendance (user_id, name, emp_id, timestamp) VALUES (%s, %s, %s, %s)", 
+                          (internal_id, name, emp_id, now))
+            conn.commit()
+            print(f"Logged attendance for {name}")
+        except Exception as e:
+            print(f"Error Logging Attachment: {e}")
+        finally:
+            conn.close()
 
 def save_model_to_db():
     """Saves the trainer.yml file to the database for persistence."""
@@ -201,7 +280,18 @@ def save_model_to_db():
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            cursor.execute("REPLACE INTO system_storage (key_name, data_blob) VALUES ('trainer_model', %s)", (blob,))
+            if DB_TYPE == 'postgres':
+                # PostgreSQL UPSERT
+                cursor.execute("""
+                    INSERT INTO system_storage (key_name, data_blob, updated_at) 
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (key_name) 
+                    DO UPDATE SET data_blob = EXCLUDED.data_blob, updated_at = EXCLUDED.updated_at
+                """, ('trainer_model', blob, datetime.datetime.now()))
+            else:
+                # MySQL REPLACE
+                cursor.execute("REPLACE INTO system_storage (key_name, data_blob) VALUES ('trainer_model', %s)", (blob,))
+            
             conn.commit()
             conn.close()
             print("Model backed up to database.")
@@ -223,15 +313,42 @@ def save_new_user():
             success, encoded = cv2.imencode('.jpg', best_frame)
             if success: img_blob = encoded.tobytes()
 
+        new_internal_id = None
         try:
-            cursor.execute("INSERT INTO users (name, emp_id, profile_image) VALUES (%s, %s, %s)", (reg_name, reg_emp_id, img_blob))
+            if DB_TYPE == 'postgres':
+                # Postgres logic
+                try:
+                     cursor.execute("INSERT INTO users (name, emp_id, profile_image) VALUES (%s, %s, %s) RETURNING id", 
+                                   (reg_name, reg_emp_id, img_blob))
+                     res = cursor.fetchone()
+                     if res: new_internal_id = res[0]
+                except psycopg2.errors.UniqueViolation:
+                     conn.rollback()
+                     cursor = conn.cursor() # Get new cursor after rollback
+                     cursor.execute("SELECT id FROM users WHERE emp_id = %s", (reg_emp_id,))
+                     row = cursor.fetchone()
+                     if row: new_internal_id = row[0]
+                     
+            else:
+                # MySQL logic
+                try:
+                    cursor.execute("INSERT INTO users (name, emp_id, profile_image) VALUES (%s, %s, %s)", (reg_name, reg_emp_id, img_blob))
+                    new_internal_id = cursor.lastrowid
+                except mysql.connector.errors.IntegrityError:
+                    cursor.execute("SELECT id FROM users WHERE emp_id = %s", (reg_emp_id,))
+                    res = cursor.fetchone()
+                    if res: new_internal_id = res[0]
+
             conn.commit()
-            new_internal_id = cursor.lastrowid
-        except:
-            # If user already exists, update them or just get ID
-            cursor.execute("SELECT id FROM users WHERE emp_id = %s", (reg_emp_id,))
-            new_internal_id = cursor.fetchone()[0]
-        conn.close()
+        except Exception as e:
+            print(f"DB Save User Error: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
+
+        if new_internal_id is None:
+             print("Failed to get User ID")
+             return False
 
         user_db[new_internal_id] = {"name": reg_name, "emp_id": reg_emp_id}
         
@@ -239,14 +356,18 @@ def save_new_user():
         faces_np = [np.array(f, dtype=np.uint8) for f in reg_faces]
         ids_np = np.array([new_internal_id]*len(reg_faces))
 
-        if os.path.exists(MODEL_FILE):
-             recognizer.update(faces_np, ids_np)
-        else:
-            recognizer.train(faces_np, ids_np)
-            
-        recognizer.write(MODEL_FILE)
-        save_model_to_db() # Persist to DB
-        return True
+        try:
+            if os.path.exists(MODEL_FILE):
+                 recognizer.update(faces_np, ids_np)
+            else:
+                recognizer.train(faces_np, ids_np)
+            recognizer.write(MODEL_FILE)
+            save_model_to_db() # Persist to DB
+            return True
+        except Exception as e:
+            print(f"Training Error: {e}")
+            return False
+
     except Exception as e:
         print(f"Error saving model: {e}")
         return False
@@ -284,7 +405,7 @@ def process_frame():
             for (x,y,w,h) in faces:
                 response_data['faces'].append({"x": int(x), "y": int(y), "w": int(w), "h": int(h)})
                 if reg_counter < 40 and reg_status_msg == "processing":
-                    # Standardize face size for better LBPH performance
+                    # Standardize face size
                     face_roi = cv2.resize(gray[y:y+h, x:x+w], FACE_SIZE)
                     reg_faces.append(face_roi)
                     reg_faces_color.append(frame[y:y+h, x:x+w])
@@ -294,18 +415,15 @@ def process_frame():
                         threading.Thread(target=finish_registration).start()
                         
         elif app_mode == 'attendance':
-            # Optimization: process at 0.5x resolution for faster detection
             small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
             small_gray = cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY)
             small_gray = clahe.apply(small_gray)
             faces_small = face_cascade.detectMultiScale(small_gray, 1.1, 5, minSize=(30, 30))
             
-            # Prepare full-res gray for recognition
             gray_full = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             gray_full = clahe.apply(gray_full)
     
             for (x, y, w, h) in faces_small:
-                # Scale back to original frame size
                 x, y, w, h = int(x*2), int(y*2), int(w*2), int(h*2)
                 name = "Unknown"
                 emp_id = ""
@@ -313,13 +431,10 @@ def process_frame():
                 
                 if user_db:
                     try:
-                        # Crop and Resize to match training data size
                         face_roi = cv2.resize(gray_full[y:y+h, x:x+w], FACE_SIZE)
                         id_label, conf = recognizer.predict(face_roi)
                         conf_val = conf
                         
-                        # LBPH: Confidence is distance. Lower is better. 0 is perfect.
-                        # 75 is a reasonable threshold for variety in lighting.
                         if conf < CONFIDENCE_THRESHOLD:
                             user_data = user_db.get(id_label)
                             if user_data:
@@ -396,7 +511,11 @@ def user_image(emp_id):
         cursor.execute("SELECT profile_image FROM users WHERE emp_id = %s", (emp_id,))
         row = cursor.fetchone()
         conn.close()
-        if row and row[0]: return Response(row[0], mimetype='image/jpeg')
+        # Handle Postgres bytes/memoryview
+        if row and row[0]:
+            img = row[0]
+            if hasattr(img, 'tobytes'): img = img.tobytes()
+            return Response(img, mimetype='image/jpeg')
     except: pass
     return "", 404
 

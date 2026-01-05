@@ -2,4 +2,5 @@ flask
 opencv-contrib-python-headless
 numpy
 mysql-connector-python
+psycopg2-binary
 gunicorn
